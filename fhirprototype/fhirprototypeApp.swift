@@ -9,9 +9,14 @@ import SwiftUI
 
 @main
 struct fhirprototypeApp: App {
+    @StateObject private var viewModel = SmartLaunchViewModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: viewModel)
+                .onOpenURL { url in
+                    viewModel.handleDeepLink(url)
+                }
         }
     }
 }
