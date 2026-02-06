@@ -126,6 +126,7 @@ enum AppError: LocalizedError {
     case stateMismatch
     case missingVerifier
     case missingPatient
+    case invalidHTMLCapture
     case httpError(status: Int, message: String?)
 
     var errorDescription: String? {
@@ -146,6 +147,8 @@ enum AppError: LocalizedError {
             return "Missing code verifier."
         case .missingPatient:
             return "Token response did not include a patient."
+        case .invalidHTMLCapture:
+            return "Unable to capture HTML content."
         case .httpError(let status, let message):
             if let message, !message.isEmpty {
                 return "Server error (\(status)): \(message)"

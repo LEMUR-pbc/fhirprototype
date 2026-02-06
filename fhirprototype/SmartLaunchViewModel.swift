@@ -12,6 +12,7 @@ final class SmartLaunchViewModel: ObservableObject {
     private let api = APIClient(baseURL: Config.backendBaseURL)
     private let credentialStore = CredentialStore()
     private let authSession = AuthSessionManager()
+    private let htmlCapturer = AuthHTMLCapturer()
 
     func handleDeepLink(_ url: URL) {
         _ = url
@@ -54,6 +55,15 @@ final class SmartLaunchViewModel: ObservableObject {
 
             guard let authURL = URL(string: auth.authorization_url) else {
                 throw AppError.invalidURL
+            }
+
+            if iss == Config.sandboxIss {
+                do {
+                    print("[Sandbox] Starting HTML capture for \(authURL.absoluteString)")
+                    _ = try await htmlCapturer.captureHTML(from: authURL)
+                } catch {
+                    print("[Sandbox] HTML capture failed: \(error.localizedDescription)")
+                }
             }
 
             let callbackURL = try await authSession.authenticate(
