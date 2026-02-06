@@ -8,6 +8,9 @@ final class SmartLaunchViewModel: ObservableObject {
     @Published var isSearching = false
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var conditions: [ConditionResource] = []
+    @Published var isLoadingConditions = false
+    @Published var conditionsError: String?
 
     private let api = APIClient(baseURL: Config.backendBaseURL)
     private let credentialStore = CredentialStore()
@@ -40,6 +43,8 @@ final class SmartLaunchViewModel: ObservableObject {
         guard !isLoading else { return }
 
         errorMessage = nil
+        conditionsError = nil
+        conditions = []
         patient = nil
         isLoading = true
         defer { isLoading = false }
@@ -101,8 +106,26 @@ final class SmartLaunchViewModel: ObservableObject {
             )
 
             self.patient = patient
+
+            await loadConditions(fhirBase: fhirBase, patientId: patientId, accessToken: token.access_token)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadConditions(fhirBase: String, patientId: String, accessToken: String) async {
+        conditionsError = nil
+        isLoadingConditions = true
+        defer { isLoadingConditions = false }
+
+        do {
+            conditions = try await api.fetchConditions(
+                fhirBase: fhirBase,
+                patientId: patientId,
+                accessToken: accessToken
+            )
+        } catch {
+            conditionsError = error.localizedDescription
         }
     }
 }

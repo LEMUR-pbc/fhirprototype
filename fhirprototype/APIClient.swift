@@ -54,6 +54,46 @@ struct APIClient {
         return try decoder.decode(PatientResource.self, from: data)
     }
 
+    func fetchConditions(fhirBase: String, patientId: String, accessToken: String) async throws -> [ConditionResource] {
+        guard let fhirURL = URL(string: fhirBase) else {
+            throw AppError.invalidURL
+        }
+
+        var components = URLComponents(url: fhirURL.appendingPathComponent("Condition"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "patient", value: patientId),
+            URLQueryItem(name: "_format", value: "json")
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/fhir+json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response, data: data)
+        do {
+            let bundle = try decoder.decode(Bundle<ConditionResource>.self, from: data)
+            return bundle.entry?.compactMap { $0.resource } ?? []
+        } catch {
+            if let outcome = try? decoder.decode(OperationOutcome.self, from: data) {
+                let issueText = outcome.issue?.compactMap { issue in
+                    issue.diagnostics ?? issue.details?.displayText ?? issue.code
+                }.joined(separator: " | ")
+
+                if let issueText, !issueText.isEmpty {
+                    throw AppError.fhirOperationOutcome(issueText)
+                }
+            }
+
+            if let body = String(data: data, encoding: .utf8), !body.isEmpty {
+                let snippet = String(body.prefix(400))
+                throw AppError.unexpectedFHIRResponse(snippet)
+            }
+
+            throw error
+        }
+    }
+
     func resolveOrganizations(query: String) async throws -> [OrgMatch] {
         var components = URLComponents(url: baseURL.appendingPathComponent("/api/epic/resolve"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

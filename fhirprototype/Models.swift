@@ -97,6 +97,55 @@ struct FHIRIdentifier: Decodable {
     let value: String?
 }
 
+struct Bundle<T: Decodable>: Decodable {
+    let entry: [BundleEntry<T>]?
+}
+
+struct BundleEntry<T: Decodable>: Decodable {
+    let resource: T?
+}
+
+struct ConditionResource: Decodable {
+    let id: String?
+    let clinicalStatus: CodeableConcept?
+    let verificationStatus: CodeableConcept?
+    let category: [CodeableConcept]?
+    let code: CodeableConcept?
+    let onsetDateTime: String?
+    let recordedDate: String?
+
+    var displayTitle: String {
+        code?.displayText ?? "Condition"
+    }
+
+    var displayStatus: String? {
+        clinicalStatus?.displayText ?? verificationStatus?.displayText
+    }
+
+    var displayOnset: String? {
+        onsetDateTime ?? recordedDate
+    }
+}
+
+struct CodeableConcept: Decodable {
+    let text: String?
+    let coding: [Coding]?
+
+    var displayText: String? {
+        if let text, !text.isEmpty { return text }
+        if let coding = coding?.first {
+            return coding.display ?? coding.code
+        }
+        return nil
+    }
+}
+
+struct Coding: Decodable {
+    let system: String?
+    let code: String?
+    let display: String?
+}
+
 struct OAuthCallback {
     let code: String
     let state: String
@@ -127,6 +176,8 @@ enum AppError: LocalizedError {
     case missingVerifier
     case missingPatient
     case invalidHTMLCapture
+    case fhirOperationOutcome(String)
+    case unexpectedFHIRResponse(String)
     case httpError(status: Int, message: String?)
 
     var errorDescription: String? {
@@ -149,6 +200,10 @@ enum AppError: LocalizedError {
             return "Token response did not include a patient."
         case .invalidHTMLCapture:
             return "Unable to capture HTML content."
+        case .fhirOperationOutcome(let message):
+            return "FHIR error: \(message)"
+        case .unexpectedFHIRResponse(let message):
+            return "Unexpected FHIR response: \(message)"
         case .httpError(let status, let message):
             if let message, !message.isEmpty {
                 return "Server error (\(status)): \(message)"
@@ -156,4 +211,15 @@ enum AppError: LocalizedError {
             return "Server error (\(status))."
         }
     }
+}
+
+struct OperationOutcome: Decodable {
+    let issue: [OperationOutcomeIssue]?
+}
+
+struct OperationOutcomeIssue: Decodable {
+    let severity: String?
+    let code: String?
+    let details: CodeableConcept?
+    let diagnostics: String?
 }

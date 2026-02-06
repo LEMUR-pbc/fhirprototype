@@ -92,6 +92,19 @@ struct ContentView: View {
                 if let patient = viewModel.patient {
                     PatientCardView(patient: patient)
                 }
+
+                if viewModel.isLoadingConditions {
+                    ProgressView("Loading conditions...")
+                }
+
+                if let conditionsError = viewModel.conditionsError {
+                    Text("Conditions error: \(conditionsError)")
+                        .foregroundColor(.red)
+                }
+
+                if !viewModel.conditions.isEmpty {
+                    ConditionsListView(conditions: viewModel.conditions)
+                }
             }
             .padding()
         }
@@ -124,6 +137,40 @@ struct PatientCardView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
+    }
+}
+
+struct ConditionsListView: View {
+    let conditions: [ConditionResource]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Conditions")
+                .font(.headline)
+
+            ForEach(Array(conditions.enumerated()), id: \.offset) { _, condition in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(condition.displayTitle)
+                        .font(.subheadline.bold())
+
+                    if let status = condition.displayStatus {
+                        Text("Status: \(status)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if let onset = condition.displayOnset {
+                        Text("Onset: \(onset)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
+            }
+        }
     }
 }
 
