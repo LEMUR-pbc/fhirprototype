@@ -108,6 +108,22 @@ struct ContentView: View {
             }
             .padding()
         }
+        .sheet(isPresented: $viewModel.isShowingSandboxInspector, onDismiss: {
+            viewModel.sandboxInspectorCancel()
+        }) {
+            if let url = viewModel.sandboxInspectorURL {
+                SandboxInspectorView(
+                    url: url,
+                    username: Config.sandboxUsername,
+                    password: Config.sandboxPassword,
+                    onContinue: { viewModel.sandboxInspectorContinue() },
+                    onCancel: { viewModel.sandboxInspectorCancel() },
+                    onComplete: { viewModel.sandboxInspectorCompleted(url: $0) }
+                )
+            } else {
+                ProgressView("Loading...")
+            }
+        }
     }
 }
 

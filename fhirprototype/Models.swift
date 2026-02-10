@@ -178,6 +178,7 @@ enum AppError: LocalizedError {
     case invalidHTMLCapture
     case fhirOperationOutcome(String)
     case unexpectedFHIRResponse(String)
+    case userCancelled
     case httpError(status: Int, message: String?)
 
     var errorDescription: String? {
@@ -204,6 +205,8 @@ enum AppError: LocalizedError {
             return "FHIR error: \(message)"
         case .unexpectedFHIRResponse(let message):
             return "Unexpected FHIR response: \(message)"
+        case .userCancelled:
+            return "Login cancelled."
         case .httpError(let status, let message):
             if let message, !message.isEmpty {
                 return "Server error (\(status)): \(message)"

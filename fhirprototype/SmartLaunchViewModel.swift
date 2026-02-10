@@ -11,11 +11,14 @@ final class SmartLaunchViewModel: ObservableObject {
     @Published var conditions: [ConditionResource] = []
     @Published var isLoadingConditions = false
     @Published var conditionsError: String?
+    @Published var isShowingSandboxInspector = false
+    @Published var sandboxInspectorURL: URL?
 
     private let api = APIClient(baseURL: Config.backendBaseURL)
     private let credentialStore = CredentialStore()
     private let authSession = AuthSessionManager()
-    private let htmlCapturer = AuthHTMLCapturer()
+    private var sandboxInspectorContinuation: CheckedContinuation<URL?, Never>?
+    private var sandboxInspectorCancelled = false
 
     func handleDeepLink(_ url: URL) {
         _ = url
@@ -62,19 +65,25 @@ final class SmartLaunchViewModel: ObservableObject {
                 throw AppError.invalidURL
             }
 
+            let callbackURL: URL
             if iss == Config.sandboxIss {
-                do {
-                    print("[Sandbox] Starting HTML capture for \(authURL.absoluteString)")
-                    _ = try await htmlCapturer.captureHTML(from: authURL)
-                } catch {
-                    print("[Sandbox] HTML capture failed: \(error.localizedDescription)")
+                let sandboxCallbackURL = await presentSandboxInspector(url: authURL)
+                if let sandboxCallbackURL {
+                    callbackURL = sandboxCallbackURL
+                } else if sandboxInspectorCancelled {
+                    throw AppError.userCancelled
+                } else {
+                    callbackURL = try await authSession.authenticate(
+                        url: authURL,
+                        callbackScheme: Config.callbackScheme
+                    )
                 }
+            } else {
+                callbackURL = try await authSession.authenticate(
+                    url: authURL,
+                    callbackScheme: Config.callbackScheme
+                )
             }
-
-            let callbackURL = try await authSession.authenticate(
-                url: authURL,
-                callbackScheme: Config.callbackScheme
-            )
 
             let callback = try OAuthCallback(url: callbackURL)
 
@@ -111,6 +120,37 @@ final class SmartLaunchViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func sandboxInspectorCompleted(url: URL) {
+        resumeSandboxInspector(callbackURL: url)
+    }
+
+    func sandboxInspectorContinue() {
+        sandboxInspectorCancelled = false
+        resumeSandboxInspector(callbackURL: nil)
+    }
+
+    func sandboxInspectorCancel() {
+        sandboxInspectorCancelled = true
+        resumeSandboxInspector(callbackURL: nil)
+    }
+
+    private func presentSandboxInspector(url: URL) async -> URL? {
+        await withCheckedContinuation { continuation in
+            sandboxInspectorContinuation = continuation
+            sandboxInspectorURL = url
+            isShowingSandboxInspector = true
+            sandboxInspectorCancelled = false
+        }
+    }
+
+    private func resumeSandboxInspector(callbackURL: URL?) {
+        guard let continuation = sandboxInspectorContinuation else { return }
+        sandboxInspectorContinuation = nil
+        sandboxInspectorURL = nil
+        isShowingSandboxInspector = false
+        continuation.resume(returning: callbackURL)
     }
 
     private func loadConditions(fhirBase: String, patientId: String, accessToken: String) async {
