@@ -8,12 +8,12 @@ enum Config {
     static let sandboxIss = "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"
     static let dukeIss = "https://health-apis.duke.edu/FHIR/api/FHIR/R4"
     static let uclaIss = "https://arrprox.mednet.ucla.edu/FHIRPRD/api/FHIR/R4"
-    static let sandboxUsername = "fhirjason"
-    static let sandboxPassword = "epicepic1"
+    static let sandboxUsername = "ghyharry"
+    static let sandboxPassword = "Ghy200604#"
 
     static let quickPicks: [QuickPick] = [
-        QuickPick(name: "Sandbox", iss: sandboxIss),
-        QuickPick(name: "Duke", iss: dukeIss),
-        QuickPick(name: "UCLA", iss: uclaIss)
+        QuickPick(name: "Sandbox", iss: sandboxIss, vendor: "epic"),
+        QuickPick(name: "Duke", iss: dukeIss, vendor: "epic"),
+        QuickPick(name: "UCLA", iss: uclaIss, vendor: "epic")
     ]
 }

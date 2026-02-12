@@ -4,6 +4,7 @@ struct QuickPick: Identifiable {
     let id = UUID()
     let name: String
     let iss: String
+    let vendor: String?
 }
 
 struct SmartAuthorizeResponse: Decodable {
@@ -12,6 +13,7 @@ struct SmartAuthorizeResponse: Decodable {
     let code_verifier: String
     let iss: String
     let redirect_uri: String
+    let vendor: String?
 }
 
 struct SmartExchangeRequest: Encodable {
@@ -19,6 +21,7 @@ struct SmartExchangeRequest: Encodable {
     let iss: String
     let code_verifier: String
     let redirect_uri: String
+    let vendor: String?
     let client_id: String? = nil
 }
 
@@ -49,6 +52,7 @@ struct OrgMatch: Decodable, Identifiable {
     let org: String?
     let organization: String?
     let brand: String?
+    let vendor: String?
 
     var displayName: String {
         name ?? organization ?? org ?? brand ?? "Unknown Organization"

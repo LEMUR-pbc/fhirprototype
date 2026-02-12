@@ -5,7 +5,7 @@ struct APIClient {
     private let session = URLSession.shared
     private let decoder = JSONDecoder()
 
-    func smartAuthorize(iss: String, redirectUri: String, scope: String? = nil, aud: String? = nil) async throws -> SmartAuthorizeResponse {
+    func smartAuthorize(iss: String, redirectUri: String, scope: String? = nil, aud: String? = nil, vendor: String? = nil) async throws -> SmartAuthorizeResponse {
         var components = URLComponents(url: baseURL.appendingPathComponent("/api/smart/authorize"), resolvingAgainstBaseURL: false)!
         var items = [
             URLQueryItem(name: "iss", value: iss),
@@ -14,6 +14,7 @@ struct APIClient {
         ]
         if let scope { items.append(URLQueryItem(name: "scope", value: scope)) }
         if let aud { items.append(URLQueryItem(name: "aud", value: aud)) }
+        if let vendor { items.append(URLQueryItem(name: "vendor", value: vendor)) }
         components.queryItems = items
 
         let (data, response) = try await session.data(from: components.url!)
@@ -21,7 +22,7 @@ struct APIClient {
         return try decoder.decode(SmartAuthorizeResponse.self, from: data)
     }
 
-    func smartExchange(code: String, iss: String, codeVerifier: String, redirectUri: String) async throws -> TokenResponse {
+    func smartExchange(code: String, iss: String, codeVerifier: String, redirectUri: String, vendor: String? = nil) async throws -> TokenResponse {
         var request = URLRequest(url: baseURL.appendingPathComponent("/api/smart/exchange"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -30,7 +31,8 @@ struct APIClient {
             code: code,
             iss: iss,
             code_verifier: codeVerifier,
-            redirect_uri: redirectUri
+            redirect_uri: redirectUri,
+            vendor: vendor
         )
         request.httpBody = try JSONEncoder().encode(body)
 

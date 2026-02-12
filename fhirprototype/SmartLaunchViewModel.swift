@@ -42,7 +42,7 @@ final class SmartLaunchViewModel: ObservableObject {
         }
     }
 
-    func startFlow(iss: String) async {
+    func startFlow(iss: String, vendorHint: String? = nil) async {
         guard !isLoading else { return }
 
         errorMessage = nil
@@ -55,7 +55,8 @@ final class SmartLaunchViewModel: ObservableObject {
         do {
             let auth = try await api.smartAuthorize(
                 iss: iss,
-                redirectUri: Config.redirectURI
+                redirectUri: Config.redirectURI,
+                vendor: vendorHint
             )
 
             credentialStore.saveState(auth.state)
@@ -100,7 +101,8 @@ final class SmartLaunchViewModel: ObservableObject {
                 code: callback.code,
                 iss: auth.iss,
                 codeVerifier: verifier,
-                redirectUri: Config.redirectURI
+                redirectUri: auth.redirect_uri,
+                vendor: auth.vendor ?? vendorHint
             )
 
             guard let patientId = token.patient else {

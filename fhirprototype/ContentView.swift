@@ -45,7 +45,7 @@ struct ContentView: View {
                             ForEach(viewModel.orgResults) { org in
                                 Button {
                                     if let iss = org.resolvedIss {
-                                        Task { await viewModel.startFlow(iss: iss) }
+                                        Task { await viewModel.startFlow(iss: iss, vendorHint: org.vendor ?? "epic") }
                                     }
                                 } label: {
                                     VStack(alignment: .leading, spacing: 4) {
@@ -74,7 +74,7 @@ struct ContentView: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
                     ForEach(Config.quickPicks) { pick in
                         Button(pick.name) {
-                            Task { await viewModel.startFlow(iss: pick.iss) }
+                            Task { await viewModel.startFlow(iss: pick.iss, vendorHint: pick.vendor) }
                         }
                         .buttonStyle(.borderedProminent)
                     }
