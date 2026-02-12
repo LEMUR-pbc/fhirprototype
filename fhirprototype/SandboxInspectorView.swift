@@ -167,9 +167,28 @@ struct SandboxWebView: UIViewRepresentable {
             let encodedPass = jsString(password)
             return """
             (function () {
+              if (window.__smartAutoLoginInstalled) { return; }
+              window.__smartAutoLoginInstalled = true;
+
               var creds = { username: \(encodedUser), password: \(encodedPass) };
-              var state = window.__smartAutoLoginState || { login: false, next: false, allow: false };
+              var state = window.__smartAutoLoginState || {
+                login: false,
+                lastNextClickAt: 0,
+                lastConsentClickAt: 0,
+                consentClicks: 0,
+                lastRunAt: 0
+              };
               window.__smartAutoLoginState = state;
+
+              var firstLoadDelayReady = false;
+              var firstLoadDelayScheduled = false;
+              var firstLoadDelayKey = "__smartAutoLoginFirstLoadDelayDone";
+
+              try {
+                if (sessionStorage.getItem(firstLoadDelayKey) === "1") {
+                  firstLoadDelayReady = true;
+                }
+              } catch (e) {}
 
               function setNativeValue(el, value) {
                 var proto = Object.getPrototypeOf(el);
@@ -185,60 +204,162 @@ struct SandboxWebView: UIViewRepresentable {
                 el.click();
               }
 
+              function isDisabled(el) {
+                return !!(el.disabled || el.getAttribute("aria-disabled") === "true");
+              }
+
               function tryLogin() {
                 if (state.login) { return false; }
                 var usernameField = document.querySelector("#Login");
                 var passwordField = document.querySelector("#Password");
                 var submitButton = document.querySelector("#submit");
-                if (usernameField && passwordField && submitButton) {
+                if (usernameField && passwordField && submitButton && !isDisabled(submitButton)) {
                   setNativeValue(usernameField, creds.username);
                   setNativeValue(passwordField, creds.password);
                   click(submitButton);
                   state.login = true;
+                  console.log("[Sandbox][AutoLogin] submitted username + password");
                   return true;
                 }
 
-                if (usernameField && submitButton && !passwordField) {
+                if (usernameField && submitButton && !passwordField && !isDisabled(submitButton)) {
                   setNativeValue(usernameField, creds.username);
                   click(submitButton);
                   state.login = true;
+                  console.log("[Sandbox][AutoLogin] submitted username only");
                   return true;
                 }
                 return false;
               }
 
               function tryNext() {
-                if (state.next) { return false; }
                 var nextButton = document.querySelector("#nextButton");
-                if (nextButton) {
+                if (nextButton && !isDisabled(nextButton)) {
+                  var now = Date.now();
+                  if (now - state.lastNextClickAt < 800) { return false; }
                   click(nextButton);
-                  state.next = true;
+                  state.lastNextClickAt = now;
+                  console.log("[Sandbox][AutoLogin] clicked nextButton");
                   return true;
                 }
                 return false;
               }
 
-              function tryAllow() {
-                if (state.allow) { return false; }
-                var allowButton = document.querySelector("#allowDataSharing");
-                if (allowButton) {
-                  click(allowButton);
-                  state.allow = true;
+              function normalizeText(value) {
+                return (value || "").toLowerCase().replace(/\\s+/g, " ").trim();
+              }
+
+              function findConsentButton() {
+                var selectors = [
+                  "#allowDataSharing",
+                  "#authorize",
+                  "#authorizeButton",
+                  "#AuthorizeButton",
+                  "button[name='authorize']",
+                  "input[name='authorize']",
+                  "button[data-action='authorize']",
+                  "input[data-action='authorize']"
+                ];
+
+                for (var i = 0; i < selectors.length; i++) {
+                  var el = document.querySelector(selectors[i]);
+                  if (el) { return el; }
+                }
+
+                var candidates = document.querySelectorAll("button, input[type='submit'], input[type='button']");
+                for (var j = 0; j < candidates.length; j++) {
+                  var candidate = candidates[j];
+                  if (isDisabled(candidate)) { continue; }
+                  var text = normalizeText(candidate.innerText || candidate.textContent || candidate.value || candidate.getAttribute("aria-label") || "");
+                  if (text.indexOf("allow") >= 0 || text.indexOf("authorize") >= 0 || text.indexOf("grant") >= 0 || text.indexOf("accept") >= 0) {
+                    return candidate;
+                  }
+                }
+
+                return null;
+              }
+
+              function tryConsent() {
+                var now = Date.now();
+                if (now - state.lastConsentClickAt < 900) { return false; }
+
+                var consentButton = findConsentButton();
+                if (consentButton && !isDisabled(consentButton)) {
+                  click(consentButton);
+                  state.lastConsentClickAt = now;
+                  state.consentClicks += 1;
+                  console.log("[Sandbox][AutoLogin] clicked consent button", consentButton.id || consentButton.name || consentButton.value || consentButton.innerText || "<unknown>");
                   return true;
                 }
+
                 return false;
               }
 
-              var attempts = 0;
-              var timer = setInterval(function() {
-                attempts += 1;
-                tryLogin();
-                tryNext();
-                tryAllow();
-                if ((state.login && state.next && state.allow) || attempts > 80) {
-                  clearInterval(timer);
+              function runAutomation() {
+                if (!firstLoadDelayReady) { return; }
+                var now = Date.now();
+                if (now - state.lastRunAt < 100) { return; }
+                state.lastRunAt = now;
+
+                // Completion-driven order: login -> next -> consent/auth.
+                // If one action occurs, return and wait for DOM/navigation to settle.
+                if (tryLogin()) { return; }
+                if (tryNext()) { return; }
+                tryConsent();
+              }
+
+              function scheduleFirstLoadDelay() {
+                if (firstLoadDelayReady || firstLoadDelayScheduled) { return; }
+                firstLoadDelayScheduled = true;
+                setTimeout(function() {
+                  firstLoadDelayReady = true;
+                  try { sessionStorage.setItem(firstLoadDelayKey, "1"); } catch (e) {}
+                  runAutomation();
+                }, 500);
+              }
+
+              function attachObserver() {
+                if (!document.documentElement) { return null; }
+                var observer = new MutationObserver(function() {
+                  runAutomation();
+                });
+                observer.observe(document.documentElement, {
+                  childList: true,
+                  subtree: true,
+                  attributes: true
+                });
+                return observer;
+              }
+
+              var observer = attachObserver();
+              window.addEventListener("load", runAutomation, true);
+              window.addEventListener("load", scheduleFirstLoadDelay, true);
+              document.addEventListener("readystatechange", runAutomation, true);
+              window.addEventListener("pageshow", runAutomation, true);
+              window.addEventListener("popstate", runAutomation, true);
+              window.addEventListener("hashchange", runAutomation, true);
+              document.addEventListener("click", function(e) {
+                if (e.isTrusted) { runAutomation(); }
+              }, true);
+
+              if (!firstLoadDelayReady && document.readyState === "complete") {
+                scheduleFirstLoadDelay();
+              }
+
+              runAutomation();
+
+              // Backup path if observers/events miss an update.
+              var fallbackAttempts = 0;
+              var fallbackTimer = setInterval(function() {
+                fallbackAttempts += 1;
+                runAutomation();
+                var reachedCallback = false;
+                try { reachedCallback = (window.location.href || "").indexOf("myapp://") === 0; } catch (e) {}
+                if (reachedCallback || fallbackAttempts > 60) {
+                  clearInterval(fallbackTimer);
+                  if (observer) { observer.disconnect(); }
                 }
-              }, 500);
+              }, 1500);
             })();
             """
         }
