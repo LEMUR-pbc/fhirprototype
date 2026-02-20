@@ -6,7 +6,7 @@ enum Config {
     static let callbackScheme = "myapp"
 
     static let sandboxIss = "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"
-    static let athenaSandboxIss = "https://ap22sandbox.fhirapi.athenahealth.com/demoAPIServer"
+    static let athenaSandboxIss = "https://api.preview.platform.athenahealth.com/fhir/r4"
     static let dukeIss = "https://health-apis.duke.edu/FHIR/api/FHIR/R4"
     static let uclaIss = "https://arrprox.mednet.ucla.edu/FHIRPRD/api/FHIR/R4"
     static let sandboxUsername = "fhirjason"

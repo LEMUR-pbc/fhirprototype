@@ -97,7 +97,7 @@ struct APIClient {
     }
 
     func resolveOrganizations(query: String) async throws -> [OrgMatch] {
-        var components = URLComponents(url: baseURL.appendingPathComponent("/api/epic/resolve"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: baseURL.appendingPathComponent("/api/smart/resolve"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "q", value: query)
         ]
